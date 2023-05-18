@@ -25,15 +25,81 @@ http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/jso
                 <flow-ref name="NuevoSeguimiento" doc:name="Nuevo Seguimiento"/>
             </when>
             <when expression="#[flowVars['oper'] == 'get']">
-                <flow-ref name="SelectSeguimiento" doc:name="Flow Reference"/>
+                <flow-ref name="SelectSeguimiento" doc:name="Select Seguimiento"/>
+            </when>
+            <when expression="#[flowVars['oper'] == 'acceso']">
+                <flow-ref name="AbrirAccesoSeguimiento" doc:name="Abrir Seguimiento"/>
+            </when>
+            <when expression="#[flowVars['oper'] == 'update']">
+                <flow-ref name="UpdateSeguimiento" doc:name="Flow Reference"/>
             </when>
             <otherwise>
                 <logger message="Se debe especificar una de las siguientes opciones como parametro: get/delete/update/post" level="INFO" doc:name="Copy_of_Logger"/>
             </otherwise>
         </choice>
+        <logger level="INFO" doc:name="Logger"/>
     </flow>
+    <sub-flow name="UpdateSeguimiento">
+        <set-variable variableName="codigo" value="#[message.inboundProperties['http.query.params'].codigo]" doc:name="Variable Codigo"/>
+        <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/idSeguimiento/validar/#[flowVars['codigo']]" method="GET" doc:name="HTTP"/>
+        <byte-array-to-string-transformer doc:name="Byte Array to String"/>
+        <logger message="#[payload] Update" level="INFO" doc:name="Logger"/>
+        <choice doc:name="Choice">
+            <when expression="#[payload == true]">
+                <logger message="Valido!" level="INFO" doc:name="Valido"/>
+                <dw:transform-message doc:name="Transform Message" metadata:id="a5a20944-ac74-46c8-bbe3-9a2ae431c834">
+                    <dw:input-payload mimeType="application/java"/>
+                    <dw:input-variable mimeType="application/java" variableName="envioId"/>
+                    <dw:set-payload><![CDATA[%dw 2.0
+%output application/json
+---
+{
+  "Estado": "pendiente1",
+  "Acceso": 0
+}]]></dw:set-payload>
+                </dw:transform-message>
+                <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Seguimiento/#[flowVars['codigo']]" method="PUT" doc:name="HTTP">
+                    <http:request-builder>
+                        <http:header headerName="Content-Type" value="application/json"/>
+                    </http:request-builder>
+                    <http:success-status-code-validator values="200,404"/>
+                </http:request>
+                <byte-array-to-string-transformer doc:name="Byte Array to String"/>
+                <set-payload value="#[payload]" doc:name="Set Payload"/>
+                <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+            </when>
+            <otherwise>
+                <logger message="El codigo #[flowVars['codigo']] no es valido. Debe ser 12 caracteres, letras mayusculas y numeros" level="INFO" doc:name="No valido"/>
+                <set-payload value="El seguimiento con codigo #[flowVars['codigo']] no encontrado" doc:name="Set Payload"/>
+            </otherwise>
+        </choice>
+    </sub-flow>
+    <sub-flow name="AbrirAccesoSeguimiento">
+        <set-variable variableName="codigo" value="#[message.inboundProperties['http.query.params'].codigo]" doc:name="Variable Codigo"/>
+        <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/idSeguimiento/validar/#[flowVars['codigo']]" method="GET" doc:name="Copy_of_HTTP"/>
+        <byte-array-to-string-transformer doc:name="Copy_of_Byte Array to String"/>
+        <logger message="#[payload]" level="INFO" doc:name="Copy_of_Logger"/>
+        <choice doc:name="Copy_of_Choice">
+            <when expression="#[payload == true]">
+                <logger message="Valido!" level="INFO" doc:name="Copy_of_Valido"/>
+                <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Seguimiento/#[flowVars['codigo']]" method="POST" doc:name="HTTP">
+                    <http:request-builder>
+                        <http:header headerName="Content-Length" value="0"/>
+                    </http:request-builder>
+                    <http:success-status-code-validator values="200,404"/>
+                </http:request>
+                <byte-array-to-string-transformer doc:name="Byte Array to String"/>
+                <set-payload value="#[payload]" doc:name="Set Payload"/>
+                <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+            </when>
+            <otherwise>
+                <logger message="El codigo #[flowVars['codigo']] no es valido. Debe ser 12 caracteres, letras mayusculas y numeros" level="INFO" doc:name="Copy_of_No valido"/>
+                <set-payload value="El seguimiento con codigo #[flowVars['codigo']] no encontrado" doc:name="Copy_of_Set Payload"/>
+            </otherwise>
+        </choice>
+    </sub-flow>
     <sub-flow name="SelectSeguimiento">
-        <set-variable variableName="codigo" value="#[message.inboundProperties['http.query.params'].codigo]" doc:name="Copy_of_Variable Operacion"/>
+        <set-variable variableName="codigo" value="#[message.inboundProperties['http.query.params'].codigo]" doc:name="Variable Codigo"/>
         <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/idSeguimiento/validar/#[flowVars['codigo']]" method="GET" doc:name="HTTP"/>
         <byte-array-to-string-transformer doc:name="Byte Array to String"/>
         <choice doc:name="Choice">
@@ -74,7 +140,7 @@ http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/jso
         <logger message="#[payload]" level="INFO" doc:name="Copy_of_Logger"/>
         <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Seguimiento" method="POST" doc:name="HTTP">
             <http:request-builder>
-                <http:header headerName="Content-Type" value="application/json; charset=utf-8"/>
+                <http:header headerName="Content-Type" value="application/json;"/>
             </http:request-builder>
         </http:request>
     </sub-flow>
