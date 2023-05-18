@@ -32,30 +32,31 @@ http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/jso
     <sub-flow name="NuevoSeguimiento">
         <set-variable variableName="envioId" value="1" doc:name="Variable"/>
         <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/idSeguimiento" method="GET" doc:name="Generar Codigo Seguimiento">
-
+            <http:request-builder>
+                <http:header headerName="Content-Length" value="0"/>
+            </http:request-builder>
         </http:request>
-        <dw:transform-message doc:name="Transform Message">
-            <dw:set-payload><![CDATA[%dw 1.0
-%output application/java
----
-payload]]></dw:set-payload>
-        </dw:transform-message>
-
-        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
-        <dw:transform-message doc:name="Transform Message">
+        <byte-array-to-string-transformer doc:name="Byte Array to String"/>
+        <dw:transform-message doc:name="Transform Message" metadata:id="a5a20944-ac74-46c8-bbe3-9a2ae431c834">
+            <dw:input-payload mimeType="application/java"/>
+            <dw:input-variable mimeType="application/java" variableName="envioId"/>
             <dw:set-payload><![CDATA[%dw 2.0
 %output application/json
+
+%var identificador = payload
+
 ---
 {
-	"identificador": payload.message,
-	"Estado": "pendiente",
-	"Acceso": 0,
-	"envioId": 0
+  "identificador": identificador,
+  "Estado": "pendiente",
+  "Acceso": 0,
+  "envioId": 1
 }]]></dw:set-payload>
         </dw:transform-message>
+        <logger message="#[payload]" level="INFO" doc:name="Copy_of_Logger"/>
         <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Seguimiento" method="POST" doc:name="HTTP">
             <http:request-builder>
-                <http:header headerName="Content-type" value="application/json"/>
+                <http:header headerName="Content-Type" value="application/json; charset=utf-8"/>
             </http:request-builder>
         </http:request>
     </sub-flow>
