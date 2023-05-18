@@ -24,11 +24,29 @@ http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/jso
             <when expression="#[flowVars['oper'] == 'nuevo']">
                 <flow-ref name="NuevoSeguimiento" doc:name="Nuevo Seguimiento"/>
             </when>
+            <when expression="#[flowVars['oper'] == 'get']">
+                <flow-ref name="SelectSeguimiento" doc:name="Flow Reference"/>
+            </when>
             <otherwise>
                 <logger message="Se debe especificar una de las siguientes opciones como parametro: get/delete/update/post" level="INFO" doc:name="Copy_of_Logger"/>
             </otherwise>
         </choice>
     </flow>
+    <sub-flow name="SelectSeguimiento">
+        <set-variable variableName="codigo" value="#[message.inboundProperties['http.query.params'].codigo]" doc:name="Copy_of_Variable Operacion"/>
+        <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/idSeguimiento/validar/#[flowVars['codigo']]" method="GET" doc:name="HTTP"/>
+        <byte-array-to-string-transformer doc:name="Byte Array to String"/>
+        <choice doc:name="Choice">
+            <when expression="#[payload == true]">
+                <logger message="Valido!" level="INFO" doc:name="Valido"/>
+                <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Seguimiento/#[flowVars['codigo']]" method="GET" doc:name="HTTP"/>
+            </when>
+            <otherwise>
+                <logger message="El codigo #[flowVars['codigo']] no es valido. Debe ser 12 caracteres, letras mayusculas y numeros" level="INFO" doc:name="No valido"/>
+                <set-payload value="El seguimiento con codigo #[flowVars['codigo']] no encontrado" doc:name="Set Payload"/>
+            </otherwise>
+        </choice>
+    </sub-flow>
     <sub-flow name="NuevoSeguimiento">
         <set-variable variableName="envioId" value="1" doc:name="Variable"/>
         <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/idSeguimiento" method="GET" doc:name="Generar Codigo Seguimiento">
