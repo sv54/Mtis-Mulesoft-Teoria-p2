@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+<mule xmlns:smtp="http://www.mulesoft.org/schema/mule/smtp" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
 	xmlns:spring="http://www.springframework.org/schema/beans" 
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
@@ -8,11 +8,61 @@ http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/cor
 http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
 http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
 http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
-http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd">
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/smtp http://www.mulesoft.org/schema/mule/smtp/current/mule-smtp.xsd">
     <http:listener-config name="HTTP_Listener_Configuration_Mule" host="0.0.0.0" port="9094" doc:name="HTTP Listener Configuration"/>
     <http:request-config name="HTTP_Request_Configuration_Swagger" host="localhost" port="5000" basePath="/VHJ1_1/MTIS/1.0.0" doc:name="HTTP Request Configuration"/>
     <http:listener-config name="HTTP_Listener_Seguimiento" host="0.0.0.0" port="9095" doc:name="HTTP Listener Configuration"/>
-    <flow name="envioPaquete">
+	<flow name="Registrar_Paquete">
+		<http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/registrarPaquete" doc:name="HTTP"/>
+		<http:request config-ref="HTTP_Request_Configuration_Swagger" path="/" method="GET" doc:name="Calcular Precio"/>
+		<dw:transform-message doc:name="Transform Message">
+			<dw:set-payload>
+				<![CDATA[%dw 1.0
+%output application/java
+---
+{
+}]]>
+			</dw:set-payload>
+		</dw:transform-message>
+		<http:request config-ref="HTTP_Request_Configuration_Swagger" path="/" method="POST" doc:name="Crear Envio"/>
+		<dw:transform-message doc:name="Transform Message">
+			<dw:set-payload>
+				<![CDATA[%dw 1.0
+%output application/java
+---
+{
+}]]>
+			</dw:set-payload>
+		</dw:transform-message>
+		<flow-ref name="NuevoSeguimiento" doc:name="Crear Nuevo Seguimiento"/>
+		<choice doc:name="Recogemos del domicilio?">
+			<when expression="#[payload == 1]">
+				<flow-ref name="Actualizar_Fecha_Seguimiento_Notificar" doc:name="Actualizar Fecha, Seguimiento y Notificar"/>
+			</when>
+			<otherwise>
+				<set-payload value="El envio se registro correctamente" doc:name="Response"/>
+			</otherwise>
+		</choice>
+	</flow>
+	<flow name="Confirmar_Recepcion_Paquete">
+		<http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/confirmarRecepcion" doc:name="HTTP"/>
+		<http:request config-ref="HTTP_Request_Configuration_Swagger" path="/" method="PUT" doc:name="Confirmar la Recepcion del Paquete"/>
+		<http:request config-ref="HTTP_Request_Configuration_Swagger" path="/" method="PUT" doc:name="Actualizamos el Estado del Seguimiento"/>
+        <smtp:outbound-endpoint host="localhost" responseTimeout="10000" doc:name="Notificar por Correo"/>
+
+	</flow>
+	<flow name="Actualizar_Fecha_Recogida">
+		<http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/actualizarFecha" doc:name="HTTP"/>
+		<flow-ref name="Actualizar_Fecha_Seguimiento_Notificar" doc:name="Actualizar Fecha, Seguimiento y Notificar"/>
+	</flow>
+	<sub-flow name="Actualizar_Fecha_Seguimiento_Notificar">
+		<http:request config-ref="HTTP_Request_Configuration_Swagger" path="/" method="PUT" doc:name="Actualizar Fecha de Recogida"/>
+		<http:request config-ref="HTTP_Request_Configuration_Swagger" path="/" method="POST" doc:name="Actualizamos el Estado del Seguimiento"/>
+        <smtp:outbound-endpoint host="localhost" responseTimeout="10000" doc:name="Copy_of_Notificar por Correo"/>
+
+	</sub-flow>
+	<flow name="envioPaquete">
         <http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/envio" doc:name="HTTP"/>
         <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Envio/Pendientes" method="GET" doc:name="HTTP"/>
         <set-payload value="#[payload]" doc:name="Set Payload"/>
