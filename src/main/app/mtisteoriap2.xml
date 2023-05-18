@@ -13,5 +13,5 @@ http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/htt
         <http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/envio" doc:name="HTTP"/>
         <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Envio/Pendientes" method="GET" doc:name="HTTP"/>
         <set-payload value="#[payload]" doc:name="Set Payload"/>
-    </flow>asf
+    </flow>
 </mule>
