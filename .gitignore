@@ -1,67 +1,16 @@
+/*
 
-
-!*./src/main/app/mtisteoriap2.xml
 !.gitignore
-# ------------------------------------------------------------------------------ #
-# Java defaults (https://github.com/github/gitignore/blob/master/Java.gitignore) #
-# ------------------------------------------------------------------------------ #
-*.class
+!/src
+/src/*
 
-# Package Files #
-*.jar
-*.war
-*.ear
+!/src/main
+/src/main/*
 
-# ------------------------------------------------------------------------------------------- #
-# Eclipse-specific (https://github.com/github/gitignore/blob/master/Global/Eclipse.gitignore) #
-# ------------------------------------------------------------------------------------------- #
-*.pydevproject
-.metadata
-bin/**
-tmp/**
-tmp/**/*
-*.tmp
-*.bak
-*.swp
-*~.nib
-local.properties
-.settings/
-.loadpath
-# You may want to remove the sharp symbols here if you are using Maven 
-#.project
-#.classpath
+!/src/main/app
+/src/main/app/*
 
-# External tool builders
-.externalToolBuilders/
+!/src/main/app/mtisteoriap2.xml
 
-# Locally stored "Eclipse launch configurations"
-*.launch
-
-# CDT-specific
-.cproject
-
-# PDT-specific
-.buildpath
-
-# --------------- #
-# Studio-specific #
-# --------------- #
-.studio/
-.project
-flows/
-target/
-src/main/api/.repository/ 
-.settings/
-catalog/
-src/main/api
-src/main/java
-src/main/resources
-src/main/wsdl
-src/main/app/mule-app.properties
-src/main/app/mule-deploy.properties
-
-src/test
-src
-target
-.classpath
-
+!/src/app/
+!/src/app/mtisteoriap2.xml
