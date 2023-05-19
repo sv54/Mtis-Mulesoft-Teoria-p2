@@ -14,25 +14,66 @@ http://www.mulesoft.org/schema/mule/smtp http://www.mulesoft.org/schema/mule/smt
     <http:request-config name="HTTP_Request_Configuration_Swagger" host="localhost" port="5000" basePath="/VHJ1_1/MTIS/1.0.0" doc:name="HTTP Request Configuration"/>
     <http:listener-config name="HTTP_Listener_Seguimiento" host="0.0.0.0" port="9095" doc:name="HTTP Listener Configuration"/>
 	<flow name="Registrar_Paquete">
-		<http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/registrarPaquete" doc:name="HTTP"/>
-		<http:request config-ref="HTTP_Request_Configuration_Swagger" path="/" method="GET" doc:name="Calcular Precio"/>
-		<dw:transform-message doc:name="Transform Message">
-			<dw:set-payload>
-				<![CDATA[%dw 1.0
+        <http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/registrarPaquete" allowedMethods="POST" doc:name="HTTP" metadata:id="aae6f5bc-438a-46e6-a7ef-7ff507e9cb00"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
 %output application/java
 ---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <set-variable variableName="envioObj" value="#[payload]" doc:name="Variable"/>
+        <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/CalcularCoste" method="POST" doc:name="Calcular Precio" metadata:id="9ec54c1a-e9b0-4df3-af33-685cf9119220">
+            <http:request-builder>
+                <http:query-param paramName="dirIn" value="#[flowVars.envioObj.origen]"/>
+                <http:query-param paramName="dirInCp" value="#[flowVars.envioObj.origenCp]"/>
+                <http:query-param paramName="dirFin" value="#[flowVars.envioObj.destino]"/>
+                <http:query-param paramName="dirFinCp" value="#[flowVars.envioObj.destinoCp]"/>
+
+            </http:request-builder>
+        </http:request>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <set-variable variableName="coste" value="#[payload.message]" doc:name="coste"/>
+
+		<dw:transform-message doc:name="Transform Message" metadata:id="4dadb3d6-9836-4985-83d1-49991c89c3d2">
+			<dw:set-payload>
+				<![CDATA[%dw 1.0
+%output application/json
+---
 {
+	estado: flowVars.envioObj.estado,
+	descripcion: flowVars.envioObj.descripcion,
+	origen: flowVars.envioObj.origen,
+	destino: flowVars.envioObj.destino,
+	peso: flowVars.envioObj.peso,
+	altura: flowVars.envioObj.altura,
+	anchura: flowVars.envioObj.anchura,
+	longitud: flowVars.envioObj.longitud,
+	importancia: flowVars.envioObj.importancia,
+	origenCp: flowVars.envioObj.origenCp,
+	destinoCp: flowVars.envioObj.destinoCp,
+	coste: flowVars.coste
 }]]>
 			</dw:set-payload>
 		</dw:transform-message>
-		<http:request config-ref="HTTP_Request_Configuration_Swagger" path="/" method="POST" doc:name="Crear Envio"/>
-		<dw:transform-message doc:name="Transform Message">
+        <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Envio" method="POST" doc:name="Crear Envio">
+            <http:request-builder>
+                <http:header headerName="Content-Type" value="application/json;"/>
+            </http:request-builder>
+        </http:request>
+
+
+		<dw:transform-message doc:name="Transform Message" metadata:id="73b7245a-b62c-40f7-abf6-c3d37a9eec65">
+            <dw:input-payload mimeType="application/json"/>
 			<dw:set-payload>
 				<![CDATA[%dw 1.0
 %output application/java
 ---
-{
-}]]>
+payload.message]]>
 			</dw:set-payload>
 		</dw:transform-message>
 		<flow-ref name="NuevoSeguimiento" doc:name="Crear Nuevo Seguimiento"/>
@@ -57,9 +98,9 @@ http://www.mulesoft.org/schema/mule/smtp http://www.mulesoft.org/schema/mule/smt
 		<flow-ref name="Actualizar_Fecha_Seguimiento_Notificar" doc:name="Actualizar Fecha, Seguimiento y Notificar"/>
 	</flow>
 	<sub-flow name="Actualizar_Fecha_Seguimiento_Notificar">
-		<http:request config-ref="HTTP_Request_Configuration_Swagger" path="/" method="PUT" doc:name="Actualizar Fecha de Recogida"/>
+		<http:request config-ref="HTTP_Request_Configuration_Swagger" path="/EnviarPaquete/fecha" method="PUT" doc:name="Actualizar Fecha de Recogida"/>
 		<http:request config-ref="HTTP_Request_Configuration_Swagger" path="/" method="POST" doc:name="Actualizamos el Estado del Seguimiento"/>
-        <smtp:outbound-endpoint host="localhost" responseTimeout="10000" doc:name="Copy_of_Notificar por Correo"/>
+        <smtp:outbound-endpoint host="localhost" responseTimeout="10000" doc:name="Notificar por Correo" from="Delivery@mtis.es" subject="Cambio de Fecha de recogida" to="cliente@mtis.es"/>
 
 	</sub-flow>
 	<flow name="envioPaquete">
@@ -172,7 +213,7 @@ payload]]></dw:set-payload>
         </choice>
     </sub-flow>
     <sub-flow name="NuevoSeguimiento">
-        <set-variable variableName="envioId" value="1" doc:name="[AQUI SE DEBE ASIGNAR] envioId"/>
+        <set-variable variableName="envioId" value="#[payload]" doc:name="[AQUI SE DEBE ASIGNAR] envioId"/>
         <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/idSeguimiento" method="GET" doc:name="Generar Codigo Seguimiento">
             <http:request-builder>
                 <http:header headerName="Content-Length" value="0"/>
