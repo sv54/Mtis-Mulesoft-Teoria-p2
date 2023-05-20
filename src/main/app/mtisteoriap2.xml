@@ -122,11 +122,55 @@ payload.message]]>
         <smtp:outbound-endpoint host="localhost" responseTimeout="10000" doc:name="Notificar por Correo" from="Delivery@mtis.es" subject="Cambio de Fecha de recogida" to="cliente@mtis.es"/>
 
 	</sub-flow>
-	<flow name="envioPaquete">
+	<flow name="asignarEnvioPendiente">
         <http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/envio" doc:name="HTTP"/>
-        <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Envio/Pendientes" method="GET" doc:name="HTTP"/>
-        <set-payload value="#[payload]" doc:name="Set Payload"/>
+        <set-variable variableName="idEnvio" value="#[message.inboundProperties['http.query.params'].idEnvio]" doc:name="Set idEnvio variable"/>
+        <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/envio/#[flowVars.idEnvio]" method="GET" doc:name="/envio/id"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <choice doc:name="Choice">
+            <when expression="#[payload.'estado' == &quot;pendiente&quot;]">
+                <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/repartidor/disponibles" method="GET" doc:name="/repartidor/disponibles"/>
+                <dw:transform-message doc:name="Transform Message">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+
+payload[0]]]></dw:set-payload>
+                </dw:transform-message>
+                <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+                <choice doc:name="Choice">
+                    <when expression="#[payload != null]">
+                        <dw:transform-message doc:name="Transform Message">
+                            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+  id: flowVars.idEnvio,
+  idrepartidor: payload.id
+}]]></dw:set-payload>
+                        </dw:transform-message>
+                        <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+                        <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/envio/repartidor" method="PUT" doc:name="HTTP"/>
+                    </when>
+                    <otherwise>
+                        <set-payload value="No hay ningun repartidor disponible en este momento" doc:name="Set Payload"/>
+                    </otherwise>
+                </choice>
+            </when>
+            <otherwise>
+                <logger message="No es pendiente " level="INFO" doc:name="Logger"/>
+                <set-payload value="El envio no es pendiente por lo que no se puede asignar" doc:name="SetPayload"/>
+            </otherwise>
+        </choice>
     </flow>
+    <sub-flow name="getEnviosPendientes">
+        <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Envio/Pendientes" method="GET" doc:name="HTTP"/>
+    </sub-flow>
     <flow name="mtisteoriap2Flow">
         <http:listener config-ref="HTTP_Listener_Seguimiento" path="/seguimiento" doc:name="HTTP"/>
         <set-variable variableName="Oper" value="#[message.inboundProperties['http.query.params'].oper]" doc:name="Variable Operacion"/>
