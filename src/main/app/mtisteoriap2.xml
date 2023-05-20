@@ -76,6 +76,7 @@ payload]]></dw:set-payload>
 payload.message]]>
 			</dw:set-payload>
 		</dw:transform-message>
+        <set-variable variableName="envioId_aux" value="#[payload]" doc:name="ID del Envio"/>
 		<flow-ref name="NuevoSeguimiento" doc:name="Crear Nuevo Seguimiento"/>
 		<choice doc:name="Recogemos del domicilio?">
 			<when expression="#[payload == 1]">
@@ -94,12 +95,30 @@ payload.message]]>
 
 	</flow>
 	<flow name="Actualizar_Fecha_Recogida">
-		<http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/actualizarFecha" doc:name="HTTP"/>
+        <http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/actualizarFecha/{id}" doc:name="HTTP"/>
+        <set-variable variableName="envioId_aux" value="#[message.inboundProperties.'http.uri.params'.id]" doc:name="ID del Envio"/>
+
 		<flow-ref name="Actualizar_Fecha_Seguimiento_Notificar" doc:name="Actualizar Fecha, Seguimiento y Notificar"/>
 	</flow>
 	<sub-flow name="Actualizar_Fecha_Seguimiento_Notificar">
-		<http:request config-ref="HTTP_Request_Configuration_Swagger" path="/EnviarPaquete/fecha" method="PUT" doc:name="Actualizar Fecha de Recogida"/>
-		<http:request config-ref="HTTP_Request_Configuration_Swagger" path="/" method="POST" doc:name="Actualizamos el Estado del Seguimiento"/>
+		<http:request config-ref="HTTP_Request_Configuration_Swagger" path="/EnviarPaquete/fecha" method="PUT" doc:name="Actualizar Fecha de Recogida" metadata:id="2f6f2609-995c-4611-af39-ba5fcb3cc925">
+            <http:request-builder>
+                <http:query-param paramName="idEnvio" value="#[flowVars.envioId_aux]"/>
+            </http:request-builder>
+        </http:request>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+{
+	estado: "El agente recogera el paquete el " + payload.message
+}]]></dw:set-payload>
+        </dw:transform-message>
+		<http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Seguimiento/Envio/{id}" method="POST" doc:name="Actualizamos el Estado del Seguimiento">
+            <http:request-builder>
+                <http:uri-param paramName="id" value="#[flowVars.envioId_aux]"/>
+            </http:request-builder>
+        </http:request>
         <smtp:outbound-endpoint host="localhost" responseTimeout="10000" doc:name="Notificar por Correo" from="Delivery@mtis.es" subject="Cambio de Fecha de recogida" to="cliente@mtis.es"/>
 
 	</sub-flow>
