@@ -167,7 +167,7 @@ payload]]></dw:set-payload>
             </when>
             <otherwise>
                 <logger message="El codigo #[flowVars['codigo']] no es valido. Debe ser 12 caracteres, letras mayusculas y numeros" level="INFO" doc:name="No valido"/>
-                <set-payload value="El seguimiento con codigo #[flowVars['codigo']] no encontrado" doc:name="Set Payload"/>
+                <set-payload value="El codigo #[flowVars['codigo']] no es valido. Debe ser 12 caracteres, letras mayusculas y numeros." doc:name="Set Payload"/>
             </otherwise>
         </choice>
     </sub-flow>
