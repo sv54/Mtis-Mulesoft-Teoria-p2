@@ -197,8 +197,8 @@ payload.message]]>
         </http:request>
 
 	</sub-flow>
-	<flow name="asignarEnvioPendiente">
-        <http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/envio" doc:name="HTTP"/>
+	<flow name="AsignarYEnviarEnvioPendiente">
+        <http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/envio" doc:name="HTTP /envio"/>
         <set-variable variableName="idEnvio" value="#[message.inboundProperties['http.query.params'].idEnvio]" doc:name="Set idEnvio variable"/>
         <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/envio/#[flowVars.idEnvio]" method="GET" doc:name="/envio/id"/>
         <dw:transform-message doc:name="Transform Message">
@@ -230,22 +230,32 @@ payload[0]]]></dw:set-payload>
 }]]></dw:set-payload>
                         </dw:transform-message>
                         <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
-                        <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/envio/repartidor" method="PUT" doc:name="HTTP"/>
+                        <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/envio/repartidor" method="PUT" doc:name="/envio/repartidor"/>
                     </when>
                     <otherwise>
-                        <set-payload value="No hay ningun repartidor disponible en este momento" doc:name="Set Payload"/>
+                        <set-payload value="No hay ningun repartidor disponible en este momento" doc:name="No hay repartidores disponibles"/>
                     </otherwise>
                 </choice>
             </when>
             <otherwise>
                 <logger message="No es pendiente " level="INFO" doc:name="Logger"/>
-                <set-payload value="El envio no es pendiente por lo que no se puede asignar" doc:name="SetPayload"/>
+                <set-payload value="El envio no es pendiente por lo que no se puede asignar" doc:name="El envio no tiene estado pendiente"/>
             </otherwise>
         </choice>
     </flow>
-    <sub-flow name="getEnviosPendientes">
-        <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Envio/Pendientes" method="GET" doc:name="HTTP"/>
-    </sub-flow>
+    <flow name="clienteNoDisponibleParaEntrega">
+        <http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/entrega/clienteNoDisponible" doc:name="HTTP /entrega/clienteNoDisponible"/>
+        <set-variable variableName="idEnvio" value="#[message.inboundProperties['http.query.params'].idEnvio]" doc:name="Set idEnvio variable"/>
+        <set-payload value=" " doc:name="Set Payload"/>
+        <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Notificacion/enviarCorreo/cliente@gmail.com/No estaba en la recogida. Pasese por el centro de recogida mas cercano" method="POST" doc:name="HTTP /Notificacion/enviarCorreo/"/>
+        <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Envio/#[flowVars.idEnvio]/esperaCliente" method="PUT" doc:name="/Envio/{id}/esperaCliente"/>
+    </flow>
+    <flow name="Copy_of_clienteNoDisponibleParaEntrega">
+        <http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/entrega/clienteDisponible" doc:name="HTTP /entrega/clienteDisponible"/>
+        <set-variable variableName="idEnvio" value="#[message.inboundProperties['http.query.params'].idEnvio]" doc:name="Set idEnvio variable"/>
+        <set-payload value=" " doc:name="Copy_of_Set Payload"/>
+        <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Envio/#[flowVars.idEnvio]/entregado" method="PUT" doc:name="/Envio/{id}/entregado"/>
+    </flow>
     <flow name="mtisteoriap2Flow">
         <http:listener config-ref="HTTP_Listener_Seguimiento" path="/seguimiento" doc:name="HTTP"/>
         <set-variable variableName="Oper" value="#[message.inboundProperties['http.query.params'].oper]" doc:name="Variable Operacion"/>
@@ -346,7 +356,7 @@ payload]]></dw:set-payload>
             </when>
             <otherwise>
                 <logger message="El codigo #[flowVars['codigo']] no es valido. Debe ser 12 caracteres, letras mayusculas y numeros" level="INFO" doc:name="No valido"/>
-                <set-payload value="El seguimiento con codigo #[flowVars['codigo']] no encontrado" doc:name="Set Payload"/>
+                <set-payload value="El codigo #[flowVars['codigo']] no es valido. Debe ser 12 caracteres, letras mayusculas y numeros." doc:name="Set Payload"/>
             </otherwise>
         </choice>
     </sub-flow>
