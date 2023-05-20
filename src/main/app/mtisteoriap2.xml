@@ -16,6 +16,7 @@ http://www.mulesoft.org/schema/mule/smtp http://www.mulesoft.org/schema/mule/smt
 	<flow name="Registrar_Paquete">
         <http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/registrarPaquete" allowedMethods="POST" doc:name="HTTP" metadata:id="aae6f5bc-438a-46e6-a7ef-7ff507e9cb00"/>
         <dw:transform-message doc:name="Transform Message">
+            <dw:input-payload/>
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/java
 ---
@@ -45,7 +46,7 @@ payload]]></dw:set-payload>
 %output application/json
 ---
 {
-	estado: flowVars.envioObj.estado,
+	estado: "pendiente de recibir",
 	descripcion: flowVars.envioObj.descripcion,
 	origen: flowVars.envioObj.origen,
 	destino: flowVars.envioObj.destino,
@@ -79,19 +80,82 @@ payload.message]]>
         <set-variable variableName="envioId_aux" value="#[payload]" doc:name="ID del Envio"/>
 		<flow-ref name="NuevoSeguimiento" doc:name="Crear Nuevo Seguimiento"/>
 		<choice doc:name="Recogemos del domicilio?">
-			<when expression="#[payload == 1]">
+			<when expression="#[flowVars.envioObj.recogerDomisilio == 1]">
+                <dw:transform-message doc:name="Transform Message">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+  id: flowVars.envioId_aux,
+  idrepartidor: 1,
+  estado: "Esperando recogida del paquete"
+}]]></dw:set-payload>
+                </dw:transform-message>
+                <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/envio/repartidor" method="PUT" doc:name="Asignar Repartidor">
+                    <http:request-builder>
+                        <http:header headerName="Content-Type" value="application/json;"/>
+                    </http:request-builder>
+                </http:request>
 				<flow-ref name="Actualizar_Fecha_Seguimiento_Notificar" doc:name="Actualizar Fecha, Seguimiento y Notificar"/>
+                <set-payload value="El envio se registro correctamente y se ha asignado una fecha de recoguida" doc:name="Response"/>
 			</when>
 			<otherwise>
-				<set-payload value="El envio se registro correctamente" doc:name="Response"/>
+                <dw:transform-message doc:name="Transform Message">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+  "Estado": "Esperando a que el cliente traiga el paquete" ,
+  "Acceso": 1
+}]]></dw:set-payload>
+                </dw:transform-message>
+                <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Seguimiento/Envio/#[flowVars.envioId_aux]" method="PUT" doc:name="Actualizamos el Estado del Seguimiento">
+                    <http:request-builder>
+                        <http:header headerName="Content-Type" value="application/json;"/>
+                    </http:request-builder>
+                </http:request>
+                <set-payload value="El envio se registro correctamente" doc:name="Response"/>
+
 			</otherwise>
 		</choice>
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+            <set-payload value="Esta direccion esta fuera de la area de cobertura" doc:name="Response"/>
+        </catch-exception-strategy>
 	</flow>
 	<flow name="Confirmar_Recepcion_Paquete">
-		<http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/confirmarRecepcion" doc:name="HTTP"/>
-		<http:request config-ref="HTTP_Request_Configuration_Swagger" path="/" method="PUT" doc:name="Confirmar la Recepcion del Paquete"/>
-		<http:request config-ref="HTTP_Request_Configuration_Swagger" path="/" method="PUT" doc:name="Actualizamos el Estado del Seguimiento"/>
-        <smtp:outbound-endpoint host="localhost" responseTimeout="10000" doc:name="Notificar por Correo"/>
+		<http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/confirmarRecepcion/{id}" doc:name="HTTP"/>
+        <set-variable variableName="envioId" value="#[message.inboundProperties.'http.uri.params'.id]" doc:name="Variable"/>
+		<http:request config-ref="HTTP_Request_Configuration_Swagger" path="/EnviarPaquete/confirmar" method="GET" doc:name="Confirmar la Recepcion del Paquete">
+            <http:request-builder>
+                <http:query-param paramName="idEnvio" value="#[flowVars.envioId]"/>
+            </http:request-builder>
+        </http:request>
+        <dw:transform-message doc:name="Transform Message" metadata:id="3c66a73e-3565-4d44-87cf-68a954c5d53f">
+            <dw:input-payload mimeType="application/json"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+ 
+---
+{
+  "Estado": payload.message ,
+  "Acceso": 1
+}]]></dw:set-payload>
+        </dw:transform-message>
+		<http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Seguimiento/Envio/#[flowVars.envioId]" method="PUT" doc:name="Actualizamos el Estado del Seguimiento">
+            <http:request-builder>
+                <http:header headerName="Content-Type" value="application/json;"/>
+            </http:request-builder>
+        </http:request>
+        <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Notificacion/enviarCorreo/{correo}/{tema}" method="POST" doc:name="Notificar por Correo">
+            <http:request-builder>
+                <http:uri-param paramName="correo" value="cliente@mtis.es"/>
+                <http:uri-param paramName="tema" value="Se ha recibido el paquete"/>
+            </http:request-builder>
+        </http:request>
+        <set-payload value="Se ha confirmado la recepcion del paquete " doc:name="Response"/>
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+            <set-payload value="Error inesperado al confirmar la recepcion del paquete" doc:name="Response"/>
+        </catch-exception-strategy>
 
 	</flow>
 	<flow name="Actualizar_Fecha_Recogida">
@@ -99,27 +163,38 @@ payload.message]]>
         <set-variable variableName="envioId_aux" value="#[message.inboundProperties.'http.uri.params'.id]" doc:name="ID del Envio"/>
 
 		<flow-ref name="Actualizar_Fecha_Seguimiento_Notificar" doc:name="Actualizar Fecha, Seguimiento y Notificar"/>
+        <set-payload value="Se ha asignado una nueva fecha de recoguida" doc:name="Response"/>
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+            <set-payload value="Error inesperado al actualizar la fecha de recoguida" doc:name="Response"/>
+        </catch-exception-strategy>
 	</flow>
 	<sub-flow name="Actualizar_Fecha_Seguimiento_Notificar">
-		<http:request config-ref="HTTP_Request_Configuration_Swagger" path="/EnviarPaquete/fecha" method="PUT" doc:name="Actualizar Fecha de Recogida" metadata:id="2f6f2609-995c-4611-af39-ba5fcb3cc925">
+		<http:request config-ref="HTTP_Request_Configuration_Swagger" path="/EnviarPaquete/fecha" method="GET" doc:name="Actualizar Fecha de Recogida" metadata:id="2f6f2609-995c-4611-af39-ba5fcb3cc925">
             <http:request-builder>
                 <http:query-param paramName="idEnvio" value="#[flowVars.envioId_aux]"/>
             </http:request-builder>
         </http:request>
         <dw:transform-message doc:name="Transform Message">
             <dw:set-payload><![CDATA[%dw 1.0
-%output application/java
+%output application/json
 ---
 {
-	estado: "El agente recogera el paquete el " + payload.message
+  "Estado": "El agente pasara a recoger el paquete el " ++ payload.message ,
+  "Acceso": 1
 }]]></dw:set-payload>
         </dw:transform-message>
-		<http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Seguimiento/Envio/{id}" method="POST" doc:name="Actualizamos el Estado del Seguimiento">
+		<http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Seguimiento/Envio/{id}" method="PUT" doc:name="Actualizamos el Estado del Seguimiento">
             <http:request-builder>
                 <http:uri-param paramName="id" value="#[flowVars.envioId_aux]"/>
+                <http:header headerName="Content-Type" value="application/json;"/>
             </http:request-builder>
         </http:request>
-        <smtp:outbound-endpoint host="localhost" responseTimeout="10000" doc:name="Notificar por Correo" from="Delivery@mtis.es" subject="Cambio de Fecha de recogida" to="cliente@mtis.es"/>
+        <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Notificacion/enviarCorreo/{correo}/{tema}" method="POST" doc:name="Notificar por Correo">
+            <http:request-builder>
+                <http:uri-param paramName="correo" value="cliente@mtis.es"/>
+                <http:uri-param paramName="tema" value="Cambio de Fecha de recogida"/>
+            </http:request-builder>
+        </http:request>
 
 	</sub-flow>
 	<flow name="asignarEnvioPendiente">
