@@ -236,6 +236,7 @@ payload[0]]]></dw:set-payload>
                         </dw:transform-message>
                         <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
                         <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/envio/repartidor" method="PUT" doc:name="/envio/repartidor"/>
+                        <set-payload value="Se ha asignado un repartidor" doc:name="Se ha asignado un repartidor"/>
                     </when>
                     <otherwise>
                         <set-payload value="No hay ningun repartidor disponible en este momento" doc:name="No hay repartidores disponibles"/>
@@ -247,6 +248,9 @@ payload[0]]]></dw:set-payload>
                 <set-payload value="El envio no es pendiente por lo que no se puede asignar" doc:name="El envio no tiene estado pendiente"/>
             </otherwise>
         </choice>
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+            <set-payload value="Error procesando envio" doc:name="Set Payload"/>
+        </catch-exception-strategy>
     </flow>
     <flow name="clienteNoDisponibleParaEntrega">
         <http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/entrega/clienteNoDisponible" doc:name="HTTP /entrega/clienteNoDisponible"/>
@@ -254,12 +258,20 @@ payload[0]]]></dw:set-payload>
         <set-payload value=" " doc:name="Set Payload"/>
         <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Notificacion/enviarCorreo/cliente@gmail.com/No estaba en la recogida. Pasese por el centro de recogida mas cercano" method="POST" doc:name="HTTP /Notificacion/enviarCorreo/"/>
         <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Envio/#[flowVars.idEnvio]/esperaCliente" method="PUT" doc:name="/Envio/{id}/esperaCliente"/>
+        <set-payload value="El estado del envio ahora es: esperando recogida del cliente" doc:name="El estado del envio ahora es..."/>
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+            <set-payload value="Error procesando envio" doc:name="Set Payload"/>
+        </catch-exception-strategy>
     </flow>
     <flow name="Copy_of_clienteNoDisponibleParaEntrega">
         <http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/entrega/clienteDisponible" doc:name="HTTP /entrega/clienteDisponible"/>
         <set-variable variableName="idEnvio" value="#[message.inboundProperties['http.query.params'].idEnvio]" doc:name="Set idEnvio variable"/>
         <set-payload value=" " doc:name="Copy_of_Set Payload"/>
         <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Envio/#[flowVars.idEnvio]/entregado" method="PUT" doc:name="/Envio/{id}/entregado"/>
+        <set-payload value="El envio ha sido entregado correctamente" doc:name="Envio entregado"/>
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+            <set-payload value="Error al intentar notificar al cliente" doc:name="Set Payload"/>
+        </catch-exception-strategy>
     </flow>
     <flow name="mtisteoriap2Flow">
         <http:listener config-ref="HTTP_Listener_Seguimiento" path="/seguimiento" doc:name="HTTP"/>
