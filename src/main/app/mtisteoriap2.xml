@@ -258,7 +258,7 @@ payload[0]]]></dw:set-payload>
         <set-payload value=" " doc:name="Set Payload"/>
         <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Notificacion/enviarCorreo/cliente@gmail.com/No estaba en la recogida. Pasese por el centro de recogida mas cercano" method="POST" doc:name="HTTP /Notificacion/enviarCorreo/"/>
         <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Envio/#[flowVars.idEnvio]/esperaCliente" method="PUT" doc:name="/Envio/{id}/esperaCliente"/>
-        <set-payload value="El estado del envio ahora es: esperando recogida del cliente" doc:name="El estado del envio ahora es..."/>
+        <set-payload value="Se ha notificado al usuario. El envio pasa a estado esperando recogida del cliente" doc:name="El estado del envio ahora es..."/>
         <catch-exception-strategy doc:name="Catch Exception Strategy">
             <set-payload value="Error procesando envio" doc:name="Set Payload"/>
         </catch-exception-strategy>
