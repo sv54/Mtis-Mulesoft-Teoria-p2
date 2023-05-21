@@ -203,7 +203,7 @@ payload.message]]>
 
 	</sub-flow>
 	<flow name="AsignarYEnviarEnvioPendiente">
-        <http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/envio" doc:name="HTTP /envio"/>
+        <http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/asignarEnvio" doc:name="HTTP /asignarEnvio"/>
         <set-variable variableName="idEnvio" value="#[message.inboundProperties['http.query.params'].idEnvio]" doc:name="Set idEnvio variable"/>
         <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/envio/#[flowVars.idEnvio]" method="GET" doc:name="/envio/id"/>
         <dw:transform-message doc:name="Transform Message">
@@ -272,6 +272,11 @@ payload[0]]]></dw:set-payload>
         <catch-exception-strategy doc:name="Catch Exception Strategy">
             <set-payload value="Error al intentar notificar al cliente" doc:name="Set Payload"/>
         </catch-exception-strategy>
+    </flow>
+    <flow name="getEnvio">
+        <http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/envio" doc:name="HTTP /envio"/>
+        <set-variable variableName="idEnvio" value="#[message.inboundProperties['http.query.params'].idEnvio]" doc:name="Set idEnvio variable"/>
+        <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Envio/#[flowVars.idEnvio]" method="GET" doc:name="HTTP get /Envio/{id}"/>
     </flow>
     <flow name="mtisteoriap2Flow">
         <http:listener config-ref="HTTP_Listener_Seguimiento" path="/seguimiento" doc:name="HTTP"/>
