@@ -103,7 +103,7 @@ payload.message]]>
                     </http:request-builder>
                 </http:request>
 				<flow-ref name="Actualizar_Fecha_Seguimiento_Notificar" doc:name="Actualizar Fecha, Seguimiento y Notificar"/>
-                <set-payload value="El envio se registro correctamente y se ha asignado una fecha de recoguida" doc:name="Response"/>
+                <set-payload value="#[flowVars.envioId_aux]" doc:name="Response"/>
 			</when>
 			<otherwise>
                 <dw:transform-message doc:name="Transform Message">
@@ -120,7 +120,7 @@ payload.message]]>
                         <http:header headerName="Content-Type" value="application/json;"/>
                     </http:request-builder>
                 </http:request>
-                <set-payload value="El envio se registro correctamente" doc:name="Response"/>
+                <set-payload value="#[flowVars.envioId_aux]" doc:name="Response"/>
 
 			</otherwise>
 		</choice>
