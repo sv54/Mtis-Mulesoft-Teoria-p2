@@ -204,7 +204,7 @@ payload.message]]>
 
 	</sub-flow>
 	<flow name="AsignarYEnviarEnvioPendiente">
-        <http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/envio" doc:name="HTTP /envio"/>
+        <http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/asignarEnvio" doc:name="HTTP /asignarEnvio"/>
         <set-variable variableName="idEnvio" value="#[message.inboundProperties['http.query.params'].idEnvio]" doc:name="Set idEnvio variable"/>
         <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/envio/#[flowVars.idEnvio]" method="GET" doc:name="/envio/id"/>
         <dw:transform-message doc:name="Transform Message">
@@ -245,7 +245,7 @@ payload[0]]]></dw:set-payload>
                 </choice>
             </when>
             <otherwise>
-                <logger message="No es pendiente " level="INFO" doc:name="Logger"/>
+                <logger message="No es pendiente: #[payload.estado]" level="INFO" doc:name="Logger"/>
                 <set-payload value="El envio no es pendiente por lo que no se puede asignar" doc:name="El envio no tiene estado pendiente"/>
             </otherwise>
         </choice>
@@ -274,7 +274,7 @@ payload[0]]]></dw:set-payload>
             <set-payload value="Error al intentar notificar al cliente" doc:name="Set Payload"/>
         </catch-exception-strategy>
     </flow>
-    <flow name="mtisteoriap2Flow">
+    <flow name="Seguimiento">
         <http:listener config-ref="HTTP_Listener_Seguimiento" path="/seguimiento" doc:name="HTTP"/>
         <set-variable variableName="Oper" value="#[message.inboundProperties['http.query.params'].oper]" doc:name="Variable Operacion"/>
         <choice doc:name="Copy_of_leer operacion">
@@ -379,7 +379,7 @@ payload]]></dw:set-payload>
         </choice>
     </sub-flow>
     <sub-flow name="NuevoSeguimiento">
-        <set-variable variableName="envioId" value="#[payload]" doc:name="[AQUI SE DEBE ASIGNAR] envioId"/>
+        <set-variable variableName="envioId" value="#[payload]" doc:name="envioId"/>
         <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/idSeguimiento" method="GET" doc:name="Generar Codigo Seguimiento">
             <http:request-builder>
                 <http:header headerName="Content-Length" value="0"/>
@@ -488,5 +488,10 @@ flowVars.response]]></dw:set-payload>
     <flow name="RegistrarSalida">
         <http:listener config-ref="HTTP_Listener_GestorAlmacen" path="/" doc:name="HTTP"/>
         <ws:consumer config-ref="WSDL_GestionAlmacen" operation="SalidaPaquete" doc:name="Web Service Consumer"/>
+    </flow>
+    <flow name="getEnvio">
+        <http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/envio" doc:name="HTTP /envio"/>
+        <set-variable variableName="idEnvio" value="#[message.inboundProperties['http.query.params'].idEnvio]" doc:name="Set idEnvio variable"/>
+        <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Envio/#[flowVars.idEnvio]" method="GET" doc:name="HTTP get /Envio/{id}"/>
     </flow>
 </mule>
