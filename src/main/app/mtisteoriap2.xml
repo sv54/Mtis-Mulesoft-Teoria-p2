@@ -18,6 +18,7 @@ http://www.mulesoft.org/schema/mule/ws http://www.mulesoft.org/schema/mule/ws/cu
     <http:request-config name="HTTP_Request_Almacen" host="localhost" port="8091" basePath="/P1/services/Almacen" doc:name="HTTP Request Configuration"/>
     <ws:consumer-config name="WSDL_GestionAlmacen" wsdlLocation="http://localhost:8091/P1/services/GestorAlmacen?wsdl" service="GestorAlmacen" port="GestorAlmacenSOAP" serviceAddress="http://localhost:8091/P1/services/GestorAlmacen/" doc:name="Web Service Consumer"/>
     <ws:consumer-config name="WSDL_Almacen" wsdlLocation="http://localhost:8091/P1/services/Almacen?wsdl" service="Almacen" port="AlmacenSOAP" serviceAddress="http://localhost:8091/P1/services/Almacen/" doc:name="Web Service Consumer"/>
+    <http:listener-config name="HTTP_Listener_GestorAlmacen" host="localhost" port="9097" basePath="/GestorAlmacen" doc:name="HTTP Listener Configuration"/>
 	<flow name="Registrar_Paquete">
         <http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/registrarPaquete" allowedMethods="POST" doc:name="HTTP" metadata:id="aae6f5bc-438a-46e6-a7ef-7ff507e9cb00"/>
         <dw:transform-message doc:name="Transform Message">
@@ -102,7 +103,7 @@ payload.message]]>
                     </http:request-builder>
                 </http:request>
 				<flow-ref name="Actualizar_Fecha_Seguimiento_Notificar" doc:name="Actualizar Fecha, Seguimiento y Notificar"/>
-                <set-payload value="El envio se registro correctamente y se ha asignado una fecha de recoguida" doc:name="Response"/>
+                <set-payload value="#[flowVars.envioId_aux]" doc:name="Response"/>
 			</when>
 			<otherwise>
                 <dw:transform-message doc:name="Transform Message">
@@ -119,7 +120,7 @@ payload.message]]>
                         <http:header headerName="Content-Type" value="application/json;"/>
                     </http:request-builder>
                 </http:request>
-                <set-payload value="El envio se registro correctamente" doc:name="Response"/>
+                <set-payload value="#[flowVars.envioId_aux]" doc:name="Response"/>
 
 			</otherwise>
 		</choice>
@@ -203,7 +204,7 @@ payload.message]]>
 
 	</sub-flow>
 	<flow name="AsignarYEnviarEnvioPendiente">
-        <http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/asignarEnvio" doc:name="HTTP /asignarEnvio"/>
+        <http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/envio" doc:name="HTTP /envio"/>
         <set-variable variableName="idEnvio" value="#[message.inboundProperties['http.query.params'].idEnvio]" doc:name="Set idEnvio variable"/>
         <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/envio/#[flowVars.idEnvio]" method="GET" doc:name="/envio/id"/>
         <dw:transform-message doc:name="Transform Message">
@@ -272,11 +273,6 @@ payload[0]]]></dw:set-payload>
         <catch-exception-strategy doc:name="Catch Exception Strategy">
             <set-payload value="Error al intentar notificar al cliente" doc:name="Set Payload"/>
         </catch-exception-strategy>
-    </flow>
-    <flow name="getEnvio">
-        <http:listener config-ref="HTTP_Listener_Configuration_Mule" path="/envio" doc:name="HTTP /envio"/>
-        <set-variable variableName="idEnvio" value="#[message.inboundProperties['http.query.params'].idEnvio]" doc:name="Set idEnvio variable"/>
-        <http:request config-ref="HTTP_Request_Configuration_Swagger" path="/Envio/#[flowVars.idEnvio]" method="GET" doc:name="HTTP get /Envio/{id}"/>
     </flow>
     <flow name="mtisteoriap2Flow">
         <http:listener config-ref="HTTP_Listener_Seguimiento" path="/seguimiento" doc:name="HTTP"/>
@@ -413,4 +409,84 @@ payload]]></dw:set-payload>
             </http:request-builder>
         </http:request>
     </sub-flow>
+    
+    <flow name="AlmacenRecibePaquete">
+        <http:listener config-ref="HTTP_Listener_Almacen" path="/" doc:name="HTTP"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 2.0
+%output application/java
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+        <set-variable variableName="idPaquete" value="#[payload.root.paquete.id]" doc:name="idPaquete"/>
+        <set-variable variableName="idAlmacen" value="#[payload.root.idAlmacen]" doc:name="idAlmacen"/>
+        <set-variable variableName="longitud" value="#[payload.root.paquete.longitud]" doc:name="Longitud"/>
+        <set-variable variableName="anchura" value="#[payload.root.paquete.anchura]" doc:name="Anchura"/>
+        <set-variable variableName="altura" value="#[payload.root.paquete.altura]" doc:name="Altura"/>
+        <dw:transform-message doc:name="Transform Message" metadata:id="3e6eeb97-483c-4cf4-aa6b-773ef1b91d27">
+            <dw:input-variable mimeType="application/java" variableName="idAlmacen"/>
+            <dw:input-variable mimeType="application/java" variableName="idPaquete"/>
+            <dw:input-variable mimeType="application/java" variableName="altura"/>
+            <dw:input-variable mimeType="application/java" variableName="anchura"/>
+            <dw:input-variable mimeType="application/java" variableName="longitud"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/xml
+%namespace ns0 http://www.mtis.org/Almacen/
+---
+{
+	ns0#ComprobarDisponibilidad: {
+		idAlmacen: flowVars.idAlmacen,
+		longitud: flowVars.longitud,
+		altura: flowVars.altura,
+		anchura: flowVars.anchura
+	}
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <logger message="id paquete: #[flowVars.idPaquete], id almacen: #[flowVars.idAlmacen]" level="INFO" doc:name="Logger"/>
+        <ws:consumer config-ref="WSDL_Almacen" operation="ComprobarDisponibilidad" doc:name="ComprobarDisponibilidad"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <set-variable variableName="response" value="#[payload]" doc:name="ResponseDisponibilidad"/>
+        <logger message="#[flowVars.response]" level="INFO" doc:name="Logger"/>
+        <set-variable variableName="disponible" value="#[payload.ComprobarDisponibilidadResponse.result]" doc:name="Disponible?"/>
+        <logger message="#[flowVars.disponible]" level="INFO" doc:name="Logger"/>
+        <choice doc:name="Choice">
+            <when expression="#[flowVars.disponible]">
+                <dw:transform-message doc:name="Transform Message">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/xml
+%namespace ns0 http://www.mtis.org/Almacen/
+---
+{
+	ns0#ActualizarDisponibilidad: {
+		idAlmacen: flowVars.idAlmacen,
+		idEspacio: payload.ns0#ComprobarDisponibilidadResponse.idEspacio,
+		estado: false,
+		paquete: flowVars.idPaquete as :number
+	}
+}]]></dw:set-payload>
+                </dw:transform-message>
+                <logger message="pequete: #[flowVars.idPaquete]" level="INFO" doc:name="Logger"/>
+                <ws:consumer config-ref="WSDL_Almacen" operation="ActualizarDisponibilidad" doc:name="ActualizarDisponibilidad"/>
+            </when>
+            <otherwise>
+                <logger message="No hay espacio" level="INFO" doc:name="Logger"/>
+            </otherwise>
+        </choice>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/xml
+---
+flowVars.response]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+    <flow name="RegistrarSalida">
+        <http:listener config-ref="HTTP_Listener_GestorAlmacen" path="/" doc:name="HTTP"/>
+        <ws:consumer config-ref="WSDL_GestionAlmacen" operation="SalidaPaquete" doc:name="Web Service Consumer"/>
+    </flow>
 </mule>
